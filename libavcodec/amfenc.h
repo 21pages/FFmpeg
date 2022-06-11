@@ -119,6 +119,9 @@ typedef struct AmfContext {
     int                 max_qp_p;
     int                 tier;
 
+    // self definition options
+    int64_t             av_bitrate;
+
     // AV1 - specific options
 
     enum AMF_VIDEO_ENCODER_AV1_ALIGNMENT_MODE_ENUM                 align;
