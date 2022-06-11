@@ -117,6 +117,9 @@ typedef struct AmfContext {
     int                 min_qp_p;
     int                 max_qp_p;
     int                 tier;
+
+    // self definition options
+    int64_t             av_bitrate;
 } AmfContext;
 
 extern const AVCodecHWConfigInternal *const ff_amfenc_hw_configs[];
