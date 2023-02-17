@@ -1414,6 +1414,24 @@ static int vtenc_create_encoder(AVCodecContext   *avctx,
         }
     }
 
+    CFDictionaryRef supportedPropertyDictionary;
+    VTSessionCopySupportedPropertyDictionary(vtctx->session, &supportedPropertyDictionary);
+    if (CFDictionaryContainsKey(supportedPropertyDictionary, kVTCompressionPropertyKey_RealTime)) {
+        printf("======================= support realtime\n");
+    } else {
+        printf("======================= unsupport realtime\n");
+    }
+    if (CFDictionaryContainsKey(supportedPropertyDictionary, compat_keys.kVTCompressionPropertyKey_RealTime)) {
+        printf("======================= support compat_keys realtime\n");
+    } else {
+        printf("======================= unsupport compat_keys realtime\n");
+    }
+    if (CFDictionaryContainsKey(supportedPropertyDictionary, kVTCompressionPropertyKey_MaxFrameDelayCount)) {
+        printf("======================= support kVTCompressionPropertyKey_MaxFrameDelayCount\n");
+    } else {
+        printf("======================= unsupport kVTCompressionPropertyKey_MaxFrameDelayCount\n");
+    }
+
     if (vtctx->max_frame_delay_count >= 0) {
         CFNumberRef num = CFNumberCreate(kCFAllocatorDefault,
                                               kCFNumberIntType,
