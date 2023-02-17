@@ -101,6 +101,7 @@ static struct{
     CFStringRef kVTCompressionPropertyKey_RealTime;
     CFStringRef kVTCompressionPropertyKey_TargetQualityForAlpha;
     CFStringRef kVTCompressionPropertyKey_PrioritizeEncodingSpeedOverQuality;
+    CFStringRef kVTCompressionPropertyKey_MaxFrameDelayCount;
 
     CFStringRef kVTVideoEncoderSpecification_EnableHardwareAcceleratedVideoEncoder;
     CFStringRef kVTVideoEncoderSpecification_RequireHardwareAcceleratedVideoEncoder;
@@ -164,6 +165,7 @@ static void loadVTEncSymbols(){
             "TargetQualityForAlpha");
     GET_SYM(kVTCompressionPropertyKey_PrioritizeEncodingSpeedOverQuality,
             "PrioritizeEncodingSpeedOverQuality");
+    GET_SYM(kVTCompressionPropertyKey_MaxFrameDelayCount, "MaxFrameDelayCount");
 
     GET_SYM(kVTVideoEncoderSpecification_EnableHardwareAcceleratedVideoEncoder,
             "EnableHardwareAcceleratedVideoEncoder");
@@ -1417,19 +1419,24 @@ static int vtenc_create_encoder(AVCodecContext   *avctx,
     CFDictionaryRef supportedPropertyDictionary;
     VTSessionCopySupportedPropertyDictionary(vtctx->session, &supportedPropertyDictionary);
     if (CFDictionaryContainsKey(supportedPropertyDictionary, kVTCompressionPropertyKey_RealTime)) {
-        printf("======================= support realtime\n");
+        printf("======================= support kVTCompressionPropertyKey_RealTime\n");
     } else {
-        printf("======================= unsupport realtime\n");
+        printf("======================= unsupport kVTCompressionPropertyKey_RealTime\n");
     }
     if (CFDictionaryContainsKey(supportedPropertyDictionary, compat_keys.kVTCompressionPropertyKey_RealTime)) {
-        printf("======================= support compat_keys realtime\n");
+        printf("======================= support compat_keys.kVTCompressionPropertyKey_RealTime\n");
     } else {
-        printf("======================= unsupport compat_keys realtime\n");
+        printf("======================= unsupport compat_keys.kVTCompressionPropertyKey_RealTime\n");
     }
     if (CFDictionaryContainsKey(supportedPropertyDictionary, kVTCompressionPropertyKey_MaxFrameDelayCount)) {
         printf("======================= support kVTCompressionPropertyKey_MaxFrameDelayCount\n");
     } else {
         printf("======================= unsupport kVTCompressionPropertyKey_MaxFrameDelayCount\n");
+    }
+    if (CFDictionaryContainsKey(supportedPropertyDictionary, compat_keys.kVTCompressionPropertyKey_MaxFrameDelayCount)) {
+        printf("======================= support compat_keys.kVTCompressionPropertyKey_MaxFrameDelayCount\n");
+    } else {
+        printf("======================= unsupport compat_keys.kVTCompressionPropertyKey_MaxFrameDelayCount\n");
     }
 
     if (vtctx->max_frame_delay_count >= 0) {
@@ -1444,6 +1451,12 @@ static int vtenc_create_encoder(AVCodecContext   *avctx,
         status = VTSessionSetProperty(vtctx->session,
                                       kVTCompressionPropertyKey_MaxFrameDelayCount,
                                       num);
+        printf("============================ status without compat_keys:%d\n", status);
+        status = VTSessionSetProperty(vtctx->session,
+                                      compat_keys.kVTCompressionPropertyKey_MaxFrameDelayCount,
+                                      num);
+        printf("============================ status with compat_keys:%d\n", status);
+
         CFRelease(num);
 
         if (status) {
