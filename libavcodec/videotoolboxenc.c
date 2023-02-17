@@ -236,6 +236,7 @@ typedef struct VTEncContext {
     int realtime;
     int frames_before;
     int frames_after;
+    int max_frame_delay_count;
 
     int allow_sw;
     int require_sw;
@@ -1410,6 +1411,25 @@ static int vtenc_create_encoder(AVCodecContext   *avctx,
 
         if (status) {
             av_log(avctx, AV_LOG_ERROR, "Error setting realtime property: %d\n", status);
+        }
+    }
+
+    if (vtctx->max_frame_delay_count >= 0) {
+        CFNumberRef num = CFNumberCreate(kCFAllocatorDefault,
+                                              kCFNumberIntType,
+                                              &vtctx->max_frame_delay_count);
+        if (!num) {
+            return AVERROR(ENOMEM);
+        }
+
+        status = VTSessionSetProperty(vtctx->session,
+                                      kVTCompressionPropertyKey_MaxFrameDelayCount,
+                                      num);
+        CFRelease(num);
+
+        if (status) {
+            av_log(avctx, AV_LOG_ERROR, "Error setting 'max frame delay count' property: %d\n", status);
+            return AVERROR_EXTERNAL;
         }
     }
 
@@ -2698,6 +2718,8 @@ static const enum AVPixelFormat prores_pix_fmts[] = {
         OFFSET(frames_after), AV_OPT_TYPE_BOOL, { .i64 = 0 }, 0, 1, VE }, \
     { "prio_speed", "prioritize encoding speed", OFFSET(prio_speed), AV_OPT_TYPE_BOOL, \
         { .i64 = -1 }, -1, 1, VE }, \
+    { "max_frame_delay_count", "The maximum number of frames that a compressor is allowed to hold before it must output a compressed frame.", \
+        OFFSET(max_frame_delay_count), AV_OPT_TYPE_INT, { .i64 = -1 }, -1, 65535, VE }, \
 
 #define OFFSET(x) offsetof(VTEncContext, x)
 static const AVOption h264_options[] = {
