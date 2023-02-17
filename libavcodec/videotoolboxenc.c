@@ -1418,6 +1418,7 @@ static int vtenc_create_encoder(AVCodecContext   *avctx,
         CFNumberRef num = CFNumberCreate(kCFAllocatorDefault,
                                               kCFNumberIntType,
                                               &vtctx->max_frame_delay_count);
+        printf("======================== vtctx->max_frame_delay_count:%d\n", vtctx->max_frame_delay_count);
         if (!num) {
             return AVERROR(ENOMEM);
         }
