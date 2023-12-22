@@ -583,6 +583,51 @@ static void amf_release_buffer_with_frame_ref(AMFBuffer *frame_ref_storage_buffe
     frame_ref_storage_buffer->pVtbl->Release(frame_ref_storage_buffer);
 }
 
+static int reconfig_encoder(AVCodecContext *avctx)
+{
+    AmfContext *ctx = avctx->priv_data;
+    AMF_RESULT  res = AMF_OK;
+
+    if (ctx->av_bitrate != avctx->bit_rate) {
+        av_log(ctx, AV_LOG_INFO, "change bitrate from %d to %d\n", ctx->av_bitrate, avctx->bit_rate);
+        ctx->av_bitrate = avctx->bit_rate;
+
+        if (avctx->codec->id == AV_CODEC_ID_H264) {
+
+            AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_TARGET_BITRATE, avctx->bit_rate);
+            if (ctx->rate_control_mode == AMF_VIDEO_ENCODER_RATE_CONTROL_METHOD_CBR) {
+                AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_PEAK_BITRATE, avctx->bit_rate);
+            }
+            if (avctx->rc_max_rate) {
+                AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_PEAK_BITRATE, avctx->rc_max_rate);
+            } else if (ctx->rate_control_mode == AMF_VIDEO_ENCODER_RATE_CONTROL_METHOD_PEAK_CONSTRAINED_VBR) {
+                av_log(ctx, AV_LOG_WARNING, "rate control mode is PEAK_CONSTRAINED_VBR but rc_max_rate is not set\n");
+            }
+
+        } else if (avctx->codec->id == AV_CODEC_ID_HEVC) {
+
+            AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_HEVC_TARGET_BITRATE, avctx->bit_rate);
+
+            if (ctx->rate_control_mode == AMF_VIDEO_ENCODER_HEVC_RATE_CONTROL_METHOD_CBR) {
+                AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_HEVC_PEAK_BITRATE, avctx->bit_rate);
+            }
+            if (avctx->rc_max_rate) {
+                AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_HEVC_PEAK_BITRATE, avctx->rc_max_rate);
+            } else if (ctx->rate_control_mode == AMF_VIDEO_ENCODER_HEVC_RATE_CONTROL_METHOD_PEAK_CONSTRAINED_VBR) {
+                av_log(ctx, AV_LOG_WARNING, "rate control mode is PEAK_CONSTRAINED_VBR but rc_max_rate is not set\n");
+            }
+
+        }
+
+         // reinit encoder
+        res = ctx->encoder->pVtbl->Terminate(ctx->encoder);
+        AMF_RETURN_IF_FALSE(ctx, res == AMF_OK, AVERROR_BUG, "encoder->Terminate() failed with error %d\n", res);
+        res = ctx->encoder->pVtbl->Init(ctx->encoder, ctx->format, avctx->width, avctx->height);
+        AMF_RETURN_IF_FALSE(ctx, res == AMF_OK, AVERROR_BUG, "encoder->Init() failed with error %d\n", res);
+    }
+    return 0;
+}
+
 int ff_amf_receive_packet(AVCodecContext *avctx, AVPacket *avpkt)
 {
     AmfContext *ctx = avctx->priv_data;
@@ -598,6 +643,8 @@ int ff_amf_receive_packet(AVCodecContext *avctx, AVPacket *avpkt)
 
     if (!ctx->encoder)
         return AVERROR(EINVAL);
+
+    reconfig_encoder(avctx);
 
     if (!frame->buf[0]) {
         ret = ff_encode_get_frame(avctx, frame);

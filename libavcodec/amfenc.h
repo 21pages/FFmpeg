@@ -90,6 +90,9 @@ typedef struct AmfContext {
     int                 b_frame_delta_qp;
     int                 ref_b_frame_delta_qp;
 
+    // self definition options
+    int64_t             av_bitrate;
+
     // Dynamic options, can be set after Init() call
 
     int64_t             query_timeout;
