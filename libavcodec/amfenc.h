@@ -92,6 +92,7 @@ typedef struct AmfContext {
 
     // Dynamic options, can be set after Init() call
 
+    int64_t             query_timeout;
     int                 rate_control_mode;
     int                 enforce_hrd;
     int                 filler_data;

@@ -99,6 +99,8 @@ static const AVOption options[] = {
 
     { "log_to_dbg",     "Enable AMF logging to debug output",   OFFSET(log_to_dbg), AV_OPT_TYPE_BOOL,{ .i64 = 0 }, 0, 1, VE },
 
+    { "query_timeout",  "Timeout for QueryOutput call in ms",   OFFSET(query_timeout), AV_OPT_TYPE_INT64, { .i64 = -1 }, -1, 1000, VE },
+
     //Pre Analysis options
     { "preanalysis",                            "Enable preanalysis",                                           OFFSET(preanalysis),                            AV_OPT_TYPE_BOOL,   {.i64 = -1 }, -1, 1, VE },
 
@@ -240,6 +242,9 @@ FF_ENABLE_DEPRECATION_WARNINGS
             av_log(ctx, AV_LOG_DEBUG, "Rate control turned to CBR\n");
         }
     }
+
+    if (ctx->query_timeout >= 0)
+        AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_HEVC_QUERY_TIMEOUT, ctx->query_timeout);
 
     // Pre-Pass, Pre-Analysis, Two-Pass
     if (ctx->rate_control_mode == AMF_VIDEO_ENCODER_HEVC_RATE_CONTROL_METHOD_CONSTANT_QP) {

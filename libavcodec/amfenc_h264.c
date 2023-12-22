@@ -89,6 +89,9 @@ static const AVOption options[] = {
 
     { "qvbr_quality_level",     "Sets the QVBR quality level",  OFFSET(qvbr_quality_level),AV_OPT_TYPE_INT,   { .i64 = -1 }, -1, 51, VE },
 
+    // query timeout
+     { "query_timeout",  "Timeout for QueryOutput call in ms",   OFFSET(query_timeout),  AV_OPT_TYPE_INT64, { .i64 = -1 }, -1, 1000, VE },
+
     /// Enforce HRD, Filler Data, VBAQ, Frame Skipping
     { "enforce_hrd",    "Enforce HRD",                          OFFSET(enforce_hrd),        AV_OPT_TYPE_BOOL, { .i64 = 0 }, 0, 1, VE },
     { "filler_data",    "Filler Data Enable",                   OFFSET(filler_data),        AV_OPT_TYPE_BOOL, { .i64 = 0 }, 0, 1, VE },
@@ -303,6 +306,9 @@ FF_ENABLE_DEPRECATION_WARNINGS
 
     // Dynamic parmaters
     AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_RATE_CONTROL_METHOD, ctx->rate_control_mode);
+
+    if (ctx->query_timeout >= 0)
+        AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_QUERY_TIMEOUT, ctx->query_timeout);
 
     /// VBV Buffer
     if (avctx->rc_buffer_size != 0) {
