@@ -89,6 +89,7 @@ static const AVOption options[] = {
     { "aud",            "Inserts AU Delimiter NAL unit",            OFFSET(aud)           ,AV_OPT_TYPE_BOOL,{ .i64 = 0 }, 0, 1, VE },
 
     { "log_to_dbg",     "Enable AMF logging to debug output",   OFFSET(log_to_dbg), AV_OPT_TYPE_BOOL,{ .i64 = 0 }, 0, 1, VE },
+    { "query_timeout", "Timeout for QueryOutput call in ms", OFFSET(query_timeout), AV_OPT_TYPE_INT64, { .i64 = -1 }, -1, 1000, VE },
     { NULL }
 };
 
@@ -121,6 +122,9 @@ static av_cold int amf_encode_init_hevc(AVCodecContext *avctx)
     AMF_ASSIGN_PROPERTY_SIZE(res, ctx->encoder, AMF_VIDEO_ENCODER_HEVC_FRAMESIZE, framesize);
 
     AMF_ASSIGN_PROPERTY_RATE(res, ctx->encoder, AMF_VIDEO_ENCODER_HEVC_FRAMERATE, framerate);
+
+    if (ctx->query_timeout >= 0)
+        AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_HEVC_QUERY_TIMEOUT, ctx->query_timeout);
 
     switch (avctx->profile) {
     case FF_PROFILE_HEVC_MAIN:

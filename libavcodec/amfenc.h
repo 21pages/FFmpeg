@@ -87,6 +87,7 @@ typedef struct AmfContext {
     int                 quality;
     int                 b_frame_delta_qp;
     int                 ref_b_frame_delta_qp;
+    int64_t             query_timeout;
 
     // Dynamic options, can be set after Init() call
 
