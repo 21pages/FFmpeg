@@ -222,6 +222,7 @@ static int amf_init_context(AVCodecContext *avctx)
 
     ctx->hwsurfaces_in_queue = 0;
     ctx->hwsurfaces_in_queue_max = 16;
+    ctx->av_bitrate = avctx->bit_rate;
 
     // configure AMF logger
     // the return of these functions indicates old state and do not affect behaviour
@@ -575,6 +576,23 @@ static void amf_release_buffer_with_frame_ref(AMFBuffer *frame_ref_storage_buffe
     frame_ref_storage_buffer->pVtbl->Release(frame_ref_storage_buffer);
 }
 
+static int reconfig_encoder(AVCodecContext *avctx)
+{
+    AmfContext *ctx = avctx->priv_data;
+    AMF_RESULT  res = AMF_OK;
+
+    if (ctx->av_bitrate != avctx->bit_rate) {
+        av_log(ctx, AV_LOG_INFO, "change bitrate from %d to %d\n", ctx->av_bitrate, avctx->bit_rate);
+        ctx->av_bitrate = avctx->bit_rate;
+        if (avctx->codec->id == AV_CODEC_ID_H264) {
+            AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_TARGET_BITRATE, avctx->bit_rate);
+        } else if (avctx->codec->id == AV_CODEC_ID_HEVC) {
+            AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_HEVC_TARGET_BITRATE, avctx->bit_rate);
+        }
+    }
+    return 0;
+}
+
 int ff_amf_receive_packet(AVCodecContext *avctx, AVPacket *avpkt)
 {
     AmfContext *ctx = avctx->priv_data;
@@ -585,6 +603,8 @@ int ff_amf_receive_packet(AVCodecContext *avctx, AVPacket *avpkt)
     AMFData    *data = NULL;
     AVFrame    *frame = ctx->delayed_frame;
     int         block_and_wait;
+
+    reconfig_encoder(avctx);
 
     if (!ctx->encoder)
         return AVERROR(EINVAL);
