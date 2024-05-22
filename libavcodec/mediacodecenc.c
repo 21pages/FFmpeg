@@ -201,8 +201,10 @@ static av_cold int mediacodec_init(AVCodecContext *avctx)
     // Workaround the alignment requirement of mediacodec. We can't do it
     // silently for AV_PIX_FMT_MEDIACODEC.
     if (avctx->pix_fmt != AV_PIX_FMT_MEDIACODEC) {
-        s->width = FFALIGN(avctx->width, 16);
-        s->height = FFALIGN(avctx->height, 16);
+        // s->width = FFALIGN(avctx->width, 16);
+        // s->height = FFALIGN(avctx->height, 16);
+        s->width = avctx->width;
+        s->height = avctx->height;
     } else {
         s->width = avctx->width;
         s->height = avctx->height;
