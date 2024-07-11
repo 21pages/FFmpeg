@@ -23,6 +23,7 @@
 
 #include <AMF/components/VideoEncoderVCE.h>
 #include <AMF/components/VideoEncoderHEVC.h>
+#include <AMF/components/ColorSpace.h>
 
 #include "libavutil/fifo.h"
 
