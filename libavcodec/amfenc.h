@@ -115,6 +115,7 @@ typedef struct AmfContext {
     int                 qvbr_quality_level;
     int                 hw_high_motion_quality_boost;
     int64_t             av_bitrate;
+    int                 forced_idr;
 
     // HEVC - specific options
 
