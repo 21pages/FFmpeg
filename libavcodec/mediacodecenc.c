@@ -506,6 +506,8 @@ static int mediacodec_send(AVCodecContext *avctx,
         copy_frame_to_buffer(avctx, frame, input_buf, input_size);
 
         pts = av_rescale_q(frame->pts, avctx->time_base, AV_TIME_BASE_Q);
+        if (frame->pict_type == AV_PICTURE_TYPE_I)
+            flags |= ff_AMediaCodec_getBufferFlagKeyFrame(codec);
     } else {
         flags |= ff_AMediaCodec_getBufferFlagEndOfStream(codec);
         s->eof_sent = 1;
