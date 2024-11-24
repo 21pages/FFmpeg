@@ -73,6 +73,8 @@ typedef struct MediaCodecEncContext {
     int bitrate_mode;
     int level;
     int pts_as_dts;
+
+    int last_bit_rate;
 } MediaCodecEncContext;
 
 enum {
@@ -154,6 +156,8 @@ static av_cold int mediacodec_init(AVCodecContext *avctx)
     FFAMediaFormat *format = NULL;
     int ret;
     int gop;
+
+    s->last_bit_rate = avctx->bit_rate;
 
     if (s->use_ndk_codec < 0)
         s->use_ndk_codec = !av_jni_get_java_vm(avctx);
@@ -515,12 +519,26 @@ static int mediacodec_send(AVCodecContext *avctx,
     return 0;
 }
 
+static void update_config(AVCodecContext *avctx)
+{
+    MediaCodecEncContext *s = avctx->priv_data;
+    if (avctx->bit_rate != s->last_bit_rate) {
+        s->last_bit_rate = avctx->bit_rate;
+        if (0 != ff_AMediaCodec_setDynamicBitrate(s->codec, avctx->bit_rate)) {
+            av_log(avctx, AV_LOG_ERROR, "Failed to set bitrate to %d\n", avctx->bit_rate);
+        } else {
+            av_log(avctx, AV_LOG_INFO, "Set bitrate to %d\n", avctx->bit_rate);
+        }
+    }
+}
+
 static int mediacodec_encode(AVCodecContext *avctx, AVPacket *pkt)
 {
     MediaCodecEncContext *s = avctx->priv_data;
     int ret;
     int got_packet = 0;
 
+    update_config(avctx);
     // Return on three case:
     // 1. Serious error
     // 2. Got a packet success
