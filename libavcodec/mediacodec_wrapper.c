@@ -35,6 +35,8 @@
 #include "ffjni.h"
 #include "mediacodec_wrapper.h"
 
+#define PARAMETER_KEY_VIDEO_BITRATE "video-bitrate"
+
 struct JNIAMediaCodecListFields {
 
     jclass mediacodec_list_class;
@@ -195,6 +197,8 @@ struct JNIAMediaCodecFields {
     jmethodID set_input_surface_id;
     jmethodID signal_end_of_input_stream_id;
 
+    jmethodID set_parameters_id;
+
     jclass mediainfo_class;
 
     jmethodID init_id;
@@ -248,6 +252,8 @@ static const struct FFJniField jni_amediacodec_mapping[] = {
         { "android/media/MediaCodec", "setInputSurface", "(Landroid/view/Surface;)V", FF_JNI_METHOD, OFFSET(set_input_surface_id), 0 },
         { "android/media/MediaCodec", "signalEndOfInputStream", "()V", FF_JNI_METHOD, OFFSET(signal_end_of_input_stream_id), 0 },
 
+        { "android/media/MediaCodec", "setParameters", "(Landroid/os/Bundle;)V", FF_JNI_METHOD, OFFSET(set_parameters_id), 0 },
+
     { "android/media/MediaCodec$BufferInfo", NULL, NULL, FF_JNI_CLASS, OFFSET(mediainfo_class), 1 },
 
         { "android/media/MediaCodec.BufferInfo", "<init>", "()V", FF_JNI_METHOD, OFFSET(init_id), 1 },
@@ -291,6 +297,24 @@ typedef struct FFAMediaCodecJni {
 } FFAMediaCodecJni;
 
 static const FFAMediaCodec media_codec_jni;
+
+struct JNIABundleFields
+{
+  jclass bundle_class;
+  jmethodID init_id;
+  jmethodID put_int_id;
+};
+
+#define OFFSET(x) offsetof(struct JNIABundleFields, x)
+static const struct FFJniField jni_abundle_mapping[] = {
+    { "android/os/Bundle", NULL, NULL, FF_JNI_CLASS, OFFSET(bundle_class), 1 },
+
+        { "android/os/Bundle", "<init>", "()V", FF_JNI_METHOD, OFFSET(init_id), 1 },
+        { "android/os/Bundle", "putInt", "(Ljava/lang/String;I)V", FF_JNI_METHOD, OFFSET(put_int_id), 1 },
+
+    { NULL }
+};
+#undef OFFSET
 
 #define JNI_GET_ENV_OR_RETURN(env, log_ctx, ret) do {              \
     (env) = ff_jni_get_env(log_ctx);                               \
@@ -1761,6 +1785,64 @@ static int mediacodec_jni_signalEndOfInputStream(FFAMediaCodec *ctx)
     return 0;
 }
 
+static int mediacodec_jni_setParameter(FFAMediaCodec *ctx, const char* name, int value)
+{
+    JNIEnv *env = NULL;
+    struct JNIABundleFields jfields = { 0 };
+    jobject object = NULL;
+    jstring key = NULL;
+    FFAMediaCodecJni *codec = (FFAMediaCodecJni *)ctx;
+    void *log_ctx = codec;
+    int ret = -1;
+
+    JNI_GET_ENV_OR_RETURN(env, codec, AVERROR_EXTERNAL);
+
+    if (ff_jni_init_jfields(env, &jfields, jni_abundle_mapping, 0, log_ctx) < 0) {
+        av_log(log_ctx, AV_LOG_ERROR, "Failed to init jfields\n");
+        goto fail;
+    }
+
+    object = (*env)->NewObject(env, jfields.bundle_class, jfields.init_id);
+    if (!object) {
+        av_log(log_ctx, AV_LOG_ERROR, "Failed to create bundle object\n");
+        goto fail;
+    }
+
+    key = ff_jni_utf_chars_to_jstring(env, name, log_ctx);
+    if (!key) {
+        av_log(log_ctx, AV_LOG_ERROR, "Failed to convert key to jstring\n");
+        goto fail;
+    }
+
+    (*env)->CallVoidMethod(env, object, jfields.put_int_id, key, value);
+    if (ff_jni_exception_check(env, 1, log_ctx) < 0) {
+        goto fail;
+    }
+
+    (*env)->CallVoidMethod(env, codec->object, codec->jfields.set_parameters_id, object);
+    if (ff_jni_exception_check(env, 1, log_ctx) < 0) {
+        goto fail;
+    }
+
+    ret = 0;
+
+fail:
+    if (key) {
+        (*env)->DeleteLocalRef(env, key);
+    }
+    if (object) {
+        (*env)->DeleteLocalRef(env, object);
+    }
+    ff_jni_reset_jfields(env, &jfields, jni_abundle_mapping, 0, log_ctx);
+
+    return ret;
+}
+
+static int mediacodec_jni_setDynamicBitrate(FFAMediaCodec *ctx, int bitrate)
+{
+    return mediacodec_jni_setParameter(ctx, PARAMETER_KEY_VIDEO_BITRATE, bitrate);
+}
+
 static const FFAMediaFormat media_format_jni = {
     .class = &amediaformat_class,
 
@@ -1820,6 +1902,8 @@ static const FFAMediaCodec media_codec_jni = {
     .getConfigureFlagEncode = mediacodec_jni_getConfigureFlagEncode,
     .cleanOutputBuffers = mediacodec_jni_cleanOutputBuffers,
     .signalEndOfInputStream = mediacodec_jni_signalEndOfInputStream,
+
+    .setDynamicBitrate = mediacodec_jni_setDynamicBitrate,
 };
 
 typedef struct FFAMediaFormatNdk {
@@ -1893,6 +1977,8 @@ typedef struct FFAMediaCodecNdk {
     // Available since API level 26.
     media_status_t (*setInputSurface)(AMediaCodec*, ANativeWindow *);
     media_status_t (*signalEndOfInputStream)(AMediaCodec *);
+
+    media_status_t (*setParameters)(AMediaCodec *, const AMediaFormat *format);
 } FFAMediaCodecNdk;
 
 static const FFAMediaFormat media_format_ndk;
@@ -2153,6 +2239,8 @@ static inline FFAMediaCodec *ndk_codec_create(int method, const char *arg) {
 
     GET_SYMBOL(setInputSurface, 0)
     GET_SYMBOL(signalEndOfInputStream, 0)
+
+    GET_SYMBOL(setParameters, 0)
 
 #undef GET_SYMBOL
 
@@ -2428,6 +2516,12 @@ static int mediacodec_ndk_signalEndOfInputStream(FFAMediaCodec *ctx)
     return 0;
 }
 
+static int mediacodec_ndk_setDynamicBitrate(FFAMediaCodec *ctx, int bitrate)
+{
+    av_log(ctx, AV_LOG_ERROR, "ndk setDynamicBitrate unavailable\n");
+    return -1;
+}
+
 static const FFAMediaFormat media_format_ndk = {
     .class = &amediaformat_ndk_class,
 
@@ -2489,6 +2583,8 @@ static const FFAMediaCodec media_codec_ndk = {
     .getConfigureFlagEncode = mediacodec_ndk_getConfigureFlagEncode,
     .cleanOutputBuffers = mediacodec_ndk_cleanOutputBuffers,
     .signalEndOfInputStream = mediacodec_ndk_signalEndOfInputStream,
+
+    .setDynamicBitrate = mediacodec_ndk_setDynamicBitrate,
 };
 
 FFAMediaFormat *ff_AMediaFormat_new(int ndk)
