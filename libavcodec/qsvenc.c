@@ -2402,6 +2402,7 @@ static int encode_frame(AVCodecContext *avctx, QSVEncContext *q,
     mfxEncodeCtrl* enc_ctrl = NULL;
     int ret;
 
+    av_log(avctx, AV_LOG_INFO, "encode_frame: frame pict_type:%d\n", (int)frame->pict_type);
     if (frame) {
         ret = submit_frame(q, frame, &qsv_frame);
         if (ret < 0) {
@@ -2409,14 +2410,18 @@ static int encode_frame(AVCodecContext *avctx, QSVEncContext *q,
             return ret;
         }
     }
+    av_log(avctx, AV_LOG_INFO, "encode_frame: frame pict_type:%d, qsv_frame == null: %d\n", (int)frame->pict_type, qsv_frame == NULL);
     if (qsv_frame) {
         surf = &qsv_frame->surface;
         enc_ctrl = &qsv_frame->enc_ctrl;
 
         if (frame->pict_type == AV_PICTURE_TYPE_I) {
+            av_log(avctx, AV_LOG_INFO, "Encoding I frame\n");
             enc_ctrl->FrameType = MFX_FRAMETYPE_I | MFX_FRAMETYPE_REF;
-            if (q->forced_idr)
+            if (q->forced_idr) {
                 enc_ctrl->FrameType |= MFX_FRAMETYPE_IDR;
+                av_log(avctx, AV_LOG_INFO, "forced_idr\n");
+            }
         }
     }
 
