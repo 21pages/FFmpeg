@@ -36,6 +36,7 @@
 #include "mediacodec_wrapper.h"
 
 #define PARAMETER_KEY_VIDEO_BITRATE "video-bitrate"
+#define PARAMETER_KEY_REQUEST_SYNC_FRAME "request-sync"
 
 struct JNIAMediaCodecListFields {
 
@@ -1848,6 +1849,11 @@ static int mediacodec_jni_setDynamicBitrate(FFAMediaCodec *ctx, int bitrate)
     return mediacodec_jni_setParameter(ctx, PARAMETER_KEY_VIDEO_BITRATE, bitrate);
 }
 
+static int mediacodec_jni_requestKeyFrame(FFAMediaCodec *ctx)
+{
+    return mediacodec_jni_setParameter(ctx, PARAMETER_KEY_REQUEST_SYNC_FRAME, 0);
+}
+
 static const FFAMediaFormat media_format_jni = {
     .class = &amediaformat_class,
 
@@ -1909,6 +1915,7 @@ static const FFAMediaCodec media_codec_jni = {
     .signalEndOfInputStream = mediacodec_jni_signalEndOfInputStream,
 
     .setDynamicBitrate = mediacodec_jni_setDynamicBitrate,
+    .requestKeyFrame = mediacodec_jni_requestKeyFrame,
 };
 
 typedef struct FFAMediaFormatNdk {
@@ -2523,6 +2530,12 @@ static int mediacodec_ndk_setDynamicBitrate(FFAMediaCodec *ctx, int bitrate)
     return -1;
 }
 
+static int mediacodec_ndk_requestKeyFrame(FFAMediaCodec *ctx)
+{
+    av_log(ctx, AV_LOG_ERROR, "ndk requestKeyFrame unavailable\n");
+    return -1;
+}
+
 static const FFAMediaFormat media_format_ndk = {
     .class = &amediaformat_ndk_class,
 
@@ -2586,6 +2599,7 @@ static const FFAMediaCodec media_codec_ndk = {
     .signalEndOfInputStream = mediacodec_ndk_signalEndOfInputStream,
 
     .setDynamicBitrate = mediacodec_ndk_setDynamicBitrate,
+    .requestKeyFrame = mediacodec_ndk_requestKeyFrame,
 };
 
 FFAMediaFormat *ff_AMediaFormat_new(int ndk)

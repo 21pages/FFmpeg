@@ -570,6 +570,14 @@ static int mediacodec_encode(AVCodecContext *avctx, AVPacket *pkt)
                 return ret;
         }
 
+        if (s->frame->pict_type == AV_PICTURE_TYPE_I) {
+            if (0 != ff_AMediaCodec_requestKeyFrame(s->codec)) {
+                av_log(avctx, AV_LOG_ERROR, "Failed to request key frame\n");
+            } else {
+                av_log(avctx, AV_LOG_DEBUG, "Requested key frame\n");
+            }
+        }
+
         ret = mediacodec_send(avctx, s->frame->buf[0] ? s->frame : NULL);
         if (!ret)
             av_frame_unref(s->frame);
