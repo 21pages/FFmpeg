@@ -154,8 +154,8 @@ static int vaapi_encode_wait(AVCodecContext *avctx,
            pic->encode_order, pic->input_surface);
 
 #if VA_CHECK_VERSION(1, 9, 0)
-    if (ctx->has_sync_buffer_func) {
-        vas = vaSyncBuffer(ctx->hwctx->display,
+    if (ctx->has_sync_buffer_func && ctx->vaapi_sync_buffer) {
+        vas = ctx->vaapi_sync_buffer(ctx->hwctx->display,
                            pic->output_buffer,
                            VA_TIMEOUT_INFINITE);
         if (vas != VA_STATUS_SUCCESS) {
@@ -2962,7 +2962,14 @@ av_cold int ff_vaapi_encode_init(AVCodecContext *avctx)
 
 #if VA_CHECK_VERSION(1, 9, 0)
     // check vaSyncBuffer function
-    vas = vaSyncBuffer(ctx->hwctx->display, VA_INVALID_ID, 0);
+    if (ctx->hwctx && ctx->hwctx->display) {
+        ctx->vaapi_sync_buffer = (typeof(ctx->vaapi_sync_buffer))
+            vaGetLibFunc(ctx->hwctx->display, "vaSyncBuffer");
+        if (ctx->vaapi_sync_buffer) {
+                vas = ctx->vaapi_sync_buffer(ctx->hwctx->display, VA_INVALID_ID, 0);
+        }
+        av_log(avctx, AV_LOG_INFO, "vaSyncBuffer: %p, vas: %d\n", ctx->vaapi_sync_buffer, vas);
+    }
     if (vas != VA_STATUS_ERROR_UNIMPLEMENTED) {
         ctx->has_sync_buffer_func = 1;
         ctx->encode_fifo = av_fifo_alloc2(ctx->async_depth,
