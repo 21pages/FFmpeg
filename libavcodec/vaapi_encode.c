@@ -142,6 +142,9 @@ static int vaapi_encode_wait(AVCodecContext *avctx,
     VAAPIEncodeContext *ctx = avctx->priv_data;
     VAStatus vas;
 
+    av_log(avctx, AV_LOG_ERROR, "vaapi_encode_wait\n");
+
+
     av_assert0(pic->encode_issued);
 
     if (pic->encode_complete) {
@@ -154,10 +157,11 @@ static int vaapi_encode_wait(AVCodecContext *avctx,
            pic->encode_order, pic->input_surface);
 
 #if VA_CHECK_VERSION(1, 9, 0)
-    if (ctx->has_sync_buffer_func) {
+  if (ctx->has_sync_buffer_func) {
         vas = vaSyncBuffer(ctx->hwctx->display,
                            pic->output_buffer,
                            VA_TIMEOUT_INFINITE);
+        av_log(avctx, AV_LOG_ERROR, "vaSyncBuffer: %d\n", vas);
         if (vas != VA_STATUS_SUCCESS) {
             av_log(avctx, AV_LOG_ERROR, "Failed to sync to output buffer completion: "
                    "%d (%s).\n", vas, vaErrorStr(vas));
@@ -166,6 +170,7 @@ static int vaapi_encode_wait(AVCodecContext *avctx,
     } else
 #endif
     { // If vaSyncBuffer is not implemented, try old version API.
+        av_log(avctx, AV_LOG_ERROR, "vaapi_encode_wait vaSyncSurface\n");
         vas = vaSyncSurface(ctx->hwctx->display, pic->input_surface);
         if (vas != VA_STATUS_SUCCESS) {
             av_log(avctx, AV_LOG_ERROR, "Failed to sync to picture completion: "
@@ -2776,6 +2781,7 @@ av_cold int ff_vaapi_encode_init(AVCodecContext *avctx)
     AVVAAPIFramesContext *recon_hwctx = NULL;
     VAStatus vas;
     int err;
+    av_log(avctx, AV_LOG_ERROR, "vaapi_encode_init 1\n");
 
     ctx->va_config  = VA_INVALID_ID;
     ctx->va_context = VA_INVALID_ID;
@@ -2959,8 +2965,10 @@ av_cold int ff_vaapi_encode_init(AVCodecContext *avctx)
             memcpy(avctx->extradata, data, avctx->extradata_size);
         }
     }
+    av_log(avctx, AV_LOG_ERROR, "vaapi_encode_init 8\n");
 
 #if VA_CHECK_VERSION(1, 9, 0)
+    av_log(avctx, AV_LOG_ERROR, "vaapi_encode_init 9, 1.9.0\n");
     // check vaSyncBuffer function
     vas = vaSyncBuffer(ctx->hwctx->display, VA_INVALID_ID, 0);
     if (vas != VA_STATUS_ERROR_UNIMPLEMENTED) {
