@@ -153,7 +153,7 @@ static int vaapi_encode_wait(AVCodecContext *avctx,
            "(input surface %#x).\n", pic->display_order,
            pic->encode_order, pic->input_surface);
 
-#if VA_CHECK_VERSION(1, 9, 0)
+#if 0
     if (ctx->has_sync_buffer_func) {
         vas = vaSyncBuffer(ctx->hwctx->display,
                            pic->output_buffer,
@@ -2960,7 +2960,7 @@ av_cold int ff_vaapi_encode_init(AVCodecContext *avctx)
         }
     }
 
-#if VA_CHECK_VERSION(1, 9, 0)
+#if 0
     // check vaSyncBuffer function
     vas = vaSyncBuffer(ctx->hwctx->display, VA_INVALID_ID, 0);
     if (vas != VA_STATUS_ERROR_UNIMPLEMENTED) {
