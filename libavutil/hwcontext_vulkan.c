@@ -1597,6 +1597,7 @@ static int vulkan_device_derive(AVHWDeviceContext *ctx,
 #if CONFIG_VAAPI
     case AV_HWDEVICE_TYPE_VAAPI: {
         AVVAAPIDeviceContext *src_hwctx = src_ctx->hwctx;
+        VAAPIDynLoadFunctions *vaf = src_hwctx->funcs;
         VADisplay dpy = src_hwctx->display;
 #if VA_CHECK_VERSION(1, 15, 0)
         VAStatus vas;
@@ -1607,13 +1608,13 @@ static int vulkan_device_derive(AVHWDeviceContext *ctx,
         const char *vendor;
 
 #if VA_CHECK_VERSION(1, 15, 0)
-        vas = vaGetDisplayAttributes(dpy, &attr, 1);
+        vas = vaf->vaGetDisplayAttributes(dpy, &attr, 1);
         if (vas == VA_STATUS_SUCCESS && attr.flags != VA_DISPLAY_ATTRIB_NOT_SUPPORTED)
             dev_select.pci_device = (attr.value & 0xFFFF);
 #endif
 
         if (!dev_select.pci_device) {
-            vendor = vaQueryVendorString(dpy);
+            vendor = vaf->vaQueryVendorString(dpy);
             if (!vendor) {
                 av_log(ctx, AV_LOG_ERROR, "Unable to get device info from VAAPI!\n");
                 return AVERROR_EXTERNAL;

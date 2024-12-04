@@ -37,17 +37,18 @@ int ff_vaapi_decode_make_param_buffer(AVCodecContext *avctx,
                                       size_t size)
 {
     VAAPIDecodeContext *ctx = avctx->internal->hwaccel_priv_data;
+    VAAPIDynLoadFunctions *vaf = ctx->hwctx->funcs;
     VAStatus vas;
     VABufferID buffer;
 
     av_assert0(pic->nb_param_buffers + 1 <= MAX_PARAM_BUFFERS);
 
-    vas = vaCreateBuffer(ctx->hwctx->display, ctx->va_context,
+    vas = vaf->vaCreateBuffer(ctx->hwctx->display, ctx->va_context,
                          type, size, 1, (void*)data, &buffer);
     if (vas != VA_STATUS_SUCCESS) {
         av_log(avctx, AV_LOG_ERROR, "Failed to create parameter "
                "buffer (type %d): %d (%s).\n",
-               type, vas, vaErrorStr(vas));
+               type, vas, vaf->vaErrorStr(vas));
         return AVERROR(EIO);
     }
 
@@ -67,6 +68,7 @@ int ff_vaapi_decode_make_slice_buffer(AVCodecContext *avctx,
                                       size_t slice_size)
 {
     VAAPIDecodeContext *ctx = avctx->internal->hwaccel_priv_data;
+    VAAPIDynLoadFunctions *vaf = ctx->hwctx->funcs;
     VAStatus vas;
     int index;
 
@@ -85,13 +87,13 @@ int ff_vaapi_decode_make_slice_buffer(AVCodecContext *avctx,
 
     index = 2 * pic->nb_slices;
 
-    vas = vaCreateBuffer(ctx->hwctx->display, ctx->va_context,
+    vas = vaf->vaCreateBuffer(ctx->hwctx->display, ctx->va_context,
                          VASliceParameterBufferType,
                          params_size, 1, (void*)params_data,
                          &pic->slice_buffers[index]);
     if (vas != VA_STATUS_SUCCESS) {
         av_log(avctx, AV_LOG_ERROR, "Failed to create slice "
-               "parameter buffer: %d (%s).\n", vas, vaErrorStr(vas));
+               "parameter buffer: %d (%s).\n", vas, vaf->vaErrorStr(vas));
         return AVERROR(EIO);
     }
 
@@ -99,15 +101,15 @@ int ff_vaapi_decode_make_slice_buffer(AVCodecContext *avctx,
            "is %#x.\n", pic->nb_slices, params_size,
            pic->slice_buffers[index]);
 
-    vas = vaCreateBuffer(ctx->hwctx->display, ctx->va_context,
+    vas = vaf->vaCreateBuffer(ctx->hwctx->display, ctx->va_context,
                          VASliceDataBufferType,
                          slice_size, 1, (void*)slice_data,
                          &pic->slice_buffers[index + 1]);
     if (vas != VA_STATUS_SUCCESS) {
         av_log(avctx, AV_LOG_ERROR, "Failed to create slice "
                "data buffer (size %zu): %d (%s).\n",
-               slice_size, vas, vaErrorStr(vas));
-        vaDestroyBuffer(ctx->hwctx->display,
+               slice_size, vas, vaf->vaErrorStr(vas));
+        vaf->vaDestroyBuffer(ctx->hwctx->display,
                         pic->slice_buffers[index]);
         return AVERROR(EIO);
     }
@@ -124,26 +126,27 @@ static void ff_vaapi_decode_destroy_buffers(AVCodecContext *avctx,
                                             VAAPIDecodePicture *pic)
 {
     VAAPIDecodeContext *ctx = avctx->internal->hwaccel_priv_data;
+    VAAPIDynLoadFunctions *vaf = ctx->hwctx->funcs;
     VAStatus vas;
     int i;
 
     for (i = 0; i < pic->nb_param_buffers; i++) {
-        vas = vaDestroyBuffer(ctx->hwctx->display,
+        vas = vaf->vaDestroyBuffer(ctx->hwctx->display,
                               pic->param_buffers[i]);
         if (vas != VA_STATUS_SUCCESS) {
             av_log(avctx, AV_LOG_ERROR, "Failed to destroy "
                    "parameter buffer %#x: %d (%s).\n",
-                   pic->param_buffers[i], vas, vaErrorStr(vas));
+                   pic->param_buffers[i], vas, vaf->vaErrorStr(vas));
         }
     }
 
     for (i = 0; i < 2 * pic->nb_slices; i++) {
-        vas = vaDestroyBuffer(ctx->hwctx->display,
+        vas = vaf->vaDestroyBuffer(ctx->hwctx->display,
                               pic->slice_buffers[i]);
         if (vas != VA_STATUS_SUCCESS) {
             av_log(avctx, AV_LOG_ERROR, "Failed to destroy slice "
                    "slice buffer %#x: %d (%s).\n",
-                   pic->slice_buffers[i], vas, vaErrorStr(vas));
+                   pic->slice_buffers[i], vas, vaf->vaErrorStr(vas));
         }
     }
 }
@@ -152,43 +155,44 @@ int ff_vaapi_decode_issue(AVCodecContext *avctx,
                           VAAPIDecodePicture *pic)
 {
     VAAPIDecodeContext *ctx = avctx->internal->hwaccel_priv_data;
+    VAAPIDynLoadFunctions *vaf = ctx->hwctx->funcs;
     VAStatus vas;
     int err;
 
     av_log(avctx, AV_LOG_DEBUG, "Decode to surface %#x.\n",
            pic->output_surface);
 
-    vas = vaBeginPicture(ctx->hwctx->display, ctx->va_context,
+    vas = vaf->vaBeginPicture(ctx->hwctx->display, ctx->va_context,
                          pic->output_surface);
     if (vas != VA_STATUS_SUCCESS) {
         av_log(avctx, AV_LOG_ERROR, "Failed to begin picture decode "
-               "issue: %d (%s).\n", vas, vaErrorStr(vas));
+               "issue: %d (%s).\n", vas, vaf->vaErrorStr(vas));
         err = AVERROR(EIO);
         goto fail_with_picture;
     }
 
-    vas = vaRenderPicture(ctx->hwctx->display, ctx->va_context,
+    vas = vaf->vaRenderPicture(ctx->hwctx->display, ctx->va_context,
                           pic->param_buffers, pic->nb_param_buffers);
     if (vas != VA_STATUS_SUCCESS) {
         av_log(avctx, AV_LOG_ERROR, "Failed to upload decode "
-               "parameters: %d (%s).\n", vas, vaErrorStr(vas));
+               "parameters: %d (%s).\n", vas, vaf->vaErrorStr(vas));
         err = AVERROR(EIO);
         goto fail_with_picture;
     }
 
-    vas = vaRenderPicture(ctx->hwctx->display, ctx->va_context,
+    vas = vaf->vaRenderPicture(ctx->hwctx->display, ctx->va_context,
                           pic->slice_buffers, 2 * pic->nb_slices);
     if (vas != VA_STATUS_SUCCESS) {
         av_log(avctx, AV_LOG_ERROR, "Failed to upload slices: "
-               "%d (%s).\n", vas, vaErrorStr(vas));
+               "%d (%s).\n", vas, vaf->vaErrorStr(vas));
         err = AVERROR(EIO);
         goto fail_with_picture;
     }
 
-    vas = vaEndPicture(ctx->hwctx->display, ctx->va_context);
+    vas = vaf->vaEndPicture(ctx->hwctx->display, ctx->va_context);
     if (vas != VA_STATUS_SUCCESS) {
         av_log(avctx, AV_LOG_ERROR, "Failed to end picture decode "
-               "issue: %d (%s).\n", vas, vaErrorStr(vas));
+               "issue: %d (%s).\n", vas, vaf->vaErrorStr(vas));
         err = AVERROR(EIO);
         if (CONFIG_VAAPI_1 || ctx->hwctx->driver_quirks &
             AV_VAAPI_DRIVER_QUIRK_RENDER_PARAM_BUFFERS)
@@ -205,10 +209,10 @@ int ff_vaapi_decode_issue(AVCodecContext *avctx,
     goto exit;
 
 fail_with_picture:
-    vas = vaEndPicture(ctx->hwctx->display, ctx->va_context);
+    vas = vaf->vaEndPicture(ctx->hwctx->display, ctx->va_context);
     if (vas != VA_STATUS_SUCCESS) {
         av_log(avctx, AV_LOG_ERROR, "Failed to end picture decode "
-               "after error: %d (%s).\n", vas, vaErrorStr(vas));
+               "after error: %d (%s).\n", vas, vaf->vaErrorStr(vas));
     }
 fail:
     ff_vaapi_decode_destroy_buffers(avctx, pic);
@@ -296,6 +300,7 @@ static int vaapi_decode_find_best_format(AVCodecContext *avctx,
                                          AVHWFramesContext *frames)
 {
     AVVAAPIDeviceContext *hwctx = device->hwctx;
+    VAAPIDynLoadFunctions *vaf = hwctx->funcs;
     VAStatus vas;
     VASurfaceAttrib *attr;
     enum AVPixelFormat source_format, best_format, format;
@@ -305,11 +310,11 @@ static int vaapi_decode_find_best_format(AVCodecContext *avctx,
     source_format = avctx->sw_pix_fmt;
     av_assert0(source_format != AV_PIX_FMT_NONE);
 
-    vas = vaQuerySurfaceAttributes(hwctx->display, config_id,
+    vas = vaf->vaQuerySurfaceAttributes(hwctx->display, config_id,
                                    NULL, &nb_attr);
     if (vas != VA_STATUS_SUCCESS) {
         av_log(avctx, AV_LOG_ERROR, "Failed to query surface attributes: "
-               "%d (%s).\n", vas, vaErrorStr(vas));
+               "%d (%s).\n", vas, vaf->vaErrorStr(vas));
         return AVERROR(ENOSYS);
     }
 
@@ -317,11 +322,11 @@ static int vaapi_decode_find_best_format(AVCodecContext *avctx,
     if (!attr)
         return AVERROR(ENOMEM);
 
-    vas = vaQuerySurfaceAttributes(hwctx->display, config_id,
+    vas = vaf->vaQuerySurfaceAttributes(hwctx->display, config_id,
                                    attr, &nb_attr);
     if (vas != VA_STATUS_SUCCESS) {
         av_log(avctx, AV_LOG_ERROR, "Failed to query surface attributes: "
-               "%d (%s).\n", vas, vaErrorStr(vas));
+               "%d (%s).\n", vas, vaf->vaErrorStr(vas));
         av_freep(&attr);
         return AVERROR(ENOSYS);
     }
@@ -463,6 +468,7 @@ static int vaapi_decode_make_config(AVCodecContext *avctx,
 
     AVHWDeviceContext    *device = (AVHWDeviceContext*)device_ref->data;
     AVVAAPIDeviceContext *hwctx = device->hwctx;
+    VAAPIDynLoadFunctions *vaf = hwctx->funcs;
 
     codec_desc = avcodec_descriptor_get(avctx->codec_id);
     if (!codec_desc) {
@@ -470,7 +476,7 @@ static int vaapi_decode_make_config(AVCodecContext *avctx,
         goto fail;
     }
 
-    profile_count = vaMaxNumProfiles(hwctx->display);
+    profile_count = vaf->vaMaxNumProfiles(hwctx->display);
     profile_list  = av_malloc_array(profile_count,
                                     sizeof(VAProfile));
     if (!profile_list) {
@@ -478,11 +484,11 @@ static int vaapi_decode_make_config(AVCodecContext *avctx,
         goto fail;
     }
 
-    vas = vaQueryConfigProfiles(hwctx->display,
+    vas = vaf->vaQueryConfigProfiles(hwctx->display,
                                 profile_list, &profile_count);
     if (vas != VA_STATUS_SUCCESS) {
         av_log(avctx, AV_LOG_ERROR, "Failed to query profiles: "
-               "%d (%s).\n", vas, vaErrorStr(vas));
+               "%d (%s).\n", vas, vaf->vaErrorStr(vas));
         err = AVERROR(ENOSYS);
         goto fail;
     }
@@ -542,12 +548,12 @@ static int vaapi_decode_make_config(AVCodecContext *avctx,
         }
     }
 
-    vas = vaCreateConfig(hwctx->display, matched_va_profile,
+    vas = vaf->vaCreateConfig(hwctx->display, matched_va_profile,
                          VAEntrypointVLD, NULL, 0,
                          va_config);
     if (vas != VA_STATUS_SUCCESS) {
         av_log(avctx, AV_LOG_ERROR, "Failed to create decode "
-               "configuration: %d (%s).\n", vas, vaErrorStr(vas));
+               "configuration: %d (%s).\n", vas, vaf->vaErrorStr(vas));
         err = AVERROR(EIO);
         goto fail;
     }
@@ -626,7 +632,7 @@ fail:
     av_hwframe_constraints_free(&constraints);
     av_freep(&hwconfig);
     if (*va_config != VA_INVALID_ID) {
-        vaDestroyConfig(hwctx->display, *va_config);
+        vaf->vaDestroyConfig(hwctx->display, *va_config);
         *va_config = VA_INVALID_ID;
     }
     av_freep(&profile_list);
@@ -639,20 +645,21 @@ int ff_vaapi_common_frame_params(AVCodecContext *avctx,
     AVHWFramesContext *hw_frames = (AVHWFramesContext *)hw_frames_ctx->data;
     AVHWDeviceContext *device_ctx = hw_frames->device_ctx;
     AVVAAPIDeviceContext *hwctx;
+    VAAPIDynLoadFunctions *vaf;
     VAConfigID va_config = VA_INVALID_ID;
     int err;
 
     if (device_ctx->type != AV_HWDEVICE_TYPE_VAAPI)
         return AVERROR(EINVAL);
     hwctx = device_ctx->hwctx;
-
+    vaf = hwctx->funcs;
     err = vaapi_decode_make_config(avctx, hw_frames->device_ref, &va_config,
                                    hw_frames_ctx);
     if (err)
         return err;
 
     if (va_config != VA_INVALID_ID)
-        vaDestroyConfig(hwctx->display, va_config);
+        vaf->vaDestroyConfig(hwctx->display, va_config);
 
     return 0;
 }
@@ -660,6 +667,7 @@ int ff_vaapi_common_frame_params(AVCodecContext *avctx,
 int ff_vaapi_decode_init(AVCodecContext *avctx)
 {
     VAAPIDecodeContext *ctx = avctx->internal->hwaccel_priv_data;
+    VAAPIDynLoadFunctions *vaf;
     VAStatus vas;
     int err;
 
@@ -674,13 +682,17 @@ int ff_vaapi_decode_init(AVCodecContext *avctx)
     ctx->hwfc   = ctx->frames->hwctx;
     ctx->device = ctx->frames->device_ctx;
     ctx->hwctx  = ctx->device->hwctx;
-
+    if (!ctx->hwctx || !ctx->hwctx->funcs) {
+        err = AVERROR(EINVAL);
+        goto fail;
+    }
+    vaf = ctx->hwctx->funcs;
     err = vaapi_decode_make_config(avctx, ctx->frames->device_ref,
                                    &ctx->va_config, NULL);
     if (err)
         goto fail;
 
-    vas = vaCreateContext(ctx->hwctx->display, ctx->va_config,
+    vas = vaf->vaCreateContext(ctx->hwctx->display, ctx->va_config,
                           avctx->coded_width, avctx->coded_height,
                           VA_PROGRESSIVE,
                           ctx->hwfc->surface_ids,
@@ -688,7 +700,7 @@ int ff_vaapi_decode_init(AVCodecContext *avctx)
                           &ctx->va_context);
     if (vas != VA_STATUS_SUCCESS) {
         av_log(avctx, AV_LOG_ERROR, "Failed to create decode "
-               "context: %d (%s).\n", vas, vaErrorStr(vas));
+               "context: %d (%s).\n", vas, vaf->vaErrorStr(vas));
         err = AVERROR(EIO);
         goto fail;
     }
@@ -706,22 +718,29 @@ fail:
 int ff_vaapi_decode_uninit(AVCodecContext *avctx)
 {
     VAAPIDecodeContext *ctx = avctx->internal->hwaccel_priv_data;
+    VAAPIDynLoadFunctions *vaf = NULL;
     VAStatus vas;
 
+    if (ctx->hwctx && ctx->hwctx->funcs)
+        vaf = ctx->hwctx->funcs;
+
+    if (!vaf)
+        return 0;
+
     if (ctx->va_context != VA_INVALID_ID) {
-        vas = vaDestroyContext(ctx->hwctx->display, ctx->va_context);
+        vas = vaf->vaDestroyContext(ctx->hwctx->display, ctx->va_context);
         if (vas != VA_STATUS_SUCCESS) {
             av_log(avctx, AV_LOG_ERROR, "Failed to destroy decode "
                    "context %#x: %d (%s).\n",
-                   ctx->va_context, vas, vaErrorStr(vas));
+                   ctx->va_context, vas, vaf->vaErrorStr(vas));
         }
     }
     if (ctx->va_config != VA_INVALID_ID) {
-        vas = vaDestroyConfig(ctx->hwctx->display, ctx->va_config);
+        vas = vaf->vaDestroyConfig(ctx->hwctx->display, ctx->va_config);
         if (vas != VA_STATUS_SUCCESS) {
             av_log(avctx, AV_LOG_ERROR, "Failed to destroy decode "
                    "configuration %#x: %d (%s).\n",
-                   ctx->va_config, vas, vaErrorStr(vas));
+                   ctx->va_config, vas, vaf->vaErrorStr(vas));
         }
     }
 

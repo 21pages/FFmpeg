@@ -766,6 +766,7 @@ static av_cold int vaapi_encode_av1_init(AVCodecContext *avctx)
 {
     VAAPIEncodeContext      *ctx = avctx->priv_data;
     VAAPIEncodeAV1Context  *priv = avctx->priv_data;
+    VAAPIDynLoadFunctions *vaf = ctx->hwctx->funcs;
     VAConfigAttrib attr;
     VAStatus vas;
     int ret;
@@ -791,13 +792,13 @@ static av_cold int vaapi_encode_av1_init(AVCodecContext *avctx)
         return ret;
 
     attr.type = VAConfigAttribEncAV1;
-    vas = vaGetConfigAttributes(ctx->hwctx->display,
+    vas = vaf->vaGetConfigAttributes(ctx->hwctx->display,
                                 ctx->va_profile,
                                 ctx->va_entrypoint,
                                 &attr, 1);
     if (vas != VA_STATUS_SUCCESS) {
         av_log(avctx, AV_LOG_ERROR, "Failed to query "
-               "config attribute: %d (%s).\n", vas, vaErrorStr(vas));
+               "config attribute: %d (%s).\n", vas, vaf->vaErrorStr(vas));
         return AVERROR_EXTERNAL;
     } else if (attr.value == VA_ATTRIB_NOT_SUPPORTED) {
         priv->attr.value = 0;
@@ -808,13 +809,13 @@ static av_cold int vaapi_encode_av1_init(AVCodecContext *avctx)
     }
 
     attr.type = VAConfigAttribEncAV1Ext1;
-    vas = vaGetConfigAttributes(ctx->hwctx->display,
+    vas = vaf->vaGetConfigAttributes(ctx->hwctx->display,
                                 ctx->va_profile,
                                 ctx->va_entrypoint,
                                 &attr, 1);
     if (vas != VA_STATUS_SUCCESS) {
         av_log(avctx, AV_LOG_ERROR, "Failed to query "
-               "config attribute: %d (%s).\n", vas, vaErrorStr(vas));
+               "config attribute: %d (%s).\n", vas, vaf->vaErrorStr(vas));
         return AVERROR_EXTERNAL;
     } else if (attr.value == VA_ATTRIB_NOT_SUPPORTED) {
         priv->attr_ext1.value = 0;
@@ -826,13 +827,13 @@ static av_cold int vaapi_encode_av1_init(AVCodecContext *avctx)
 
     /** This attr provides essential indicators, return error if not support. */
     attr.type = VAConfigAttribEncAV1Ext2;
-    vas = vaGetConfigAttributes(ctx->hwctx->display,
+    vas = vaf->vaGetConfigAttributes(ctx->hwctx->display,
                                 ctx->va_profile,
                                 ctx->va_entrypoint,
                                 &attr, 1);
     if (vas != VA_STATUS_SUCCESS || attr.value == VA_ATTRIB_NOT_SUPPORTED) {
         av_log(avctx, AV_LOG_ERROR, "Failed to query "
-               "config attribute: %d (%s).\n", vas, vaErrorStr(vas));
+               "config attribute: %d (%s).\n", vas, vaf->vaErrorStr(vas));
         return AVERROR_EXTERNAL;
     } else {
         priv->attr_ext2.value = attr.value;
