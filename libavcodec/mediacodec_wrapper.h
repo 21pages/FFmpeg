@@ -219,6 +219,8 @@ struct FFAMediaCodec {
 
     // For encoder with FFANativeWindow as input.
     int (*signalEndOfInputStream)(FFAMediaCodec *);
+
+    int (*setDynamicBitrate)(FFAMediaCodec *codec, int bitrate);
 };
 
 static inline char *ff_AMediaCodec_getName(FFAMediaCodec *codec)
@@ -341,6 +343,11 @@ static inline int ff_AMediaCodec_cleanOutputBuffers(FFAMediaCodec *codec)
 static inline int ff_AMediaCodec_signalEndOfInputStream(FFAMediaCodec *codec)
 {
     return codec->signalEndOfInputStream(codec);
+}
+
+static inline int ff_AMediaCodec_setDynamicBitrate(FFAMediaCodec *codec, int bitrate)
+{
+    return codec->setDynamicBitrate(codec, bitrate);
 }
 
 int ff_Build_SDK_INT(AVCodecContext *avctx);
