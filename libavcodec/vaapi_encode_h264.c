@@ -868,6 +868,7 @@ static int vaapi_encode_h264_init_slice_params(AVCodecContext *avctx,
 static av_cold int vaapi_encode_h264_configure(AVCodecContext *avctx)
 {
     VAAPIEncodeContext      *ctx = avctx->priv_data;
+    VAAPIDynLoadFunctions   *vaf = ctx->hwctx->funcs;
     VAAPIEncodeH264Context *priv = avctx->priv_data;
     int err;
 
@@ -919,7 +920,7 @@ static av_cold int vaapi_encode_h264_configure(AVCodecContext *avctx)
                vaapi_encode_h264_sei_identifier_uuid,
                sizeof(priv->sei_identifier.uuid_iso_iec_11578));
 
-        driver = vaQueryVendorString(ctx->hwctx->display);
+        driver = vaf->vaQueryVendorString(ctx->hwctx->display);
         if (!driver)
             driver = "unknown driver";
 
