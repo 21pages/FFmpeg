@@ -279,6 +279,8 @@ typedef struct VTEncContext {
     int max_slice_bytes;
     int power_efficient;
     int max_ref_frames;
+
+    int last_bit_rate;
 } VTEncContext;
 
 static void vtenc_free_buf_node(BufNode *info)
@@ -1180,6 +1182,7 @@ static int vtenc_create_encoder(AVCodecContext   *avctx,
     int64_t      one_second_value = 0;
     void         *nums[2];
 
+    vtctx->last_bit_rate = bit_rate;
     int status = VTCompressionSessionCreate(kCFAllocatorDefault,
                                             avctx->width,
                                             avctx->height,
@@ -2638,6 +2641,42 @@ out:
     return status;
 }
 
+static void update_config(AVCodecContext *avctx)
+{
+    VTEncContext *vtctx = avctx->priv_data;
+    
+    if (avctx->codec_id != AV_CODEC_ID_PRORES) {
+        if (avctx->bit_rate != vtctx->last_bit_rate) {
+            av_log(avctx, AV_LOG_INFO, "Setting bit rate to %d\n", avctx->bit_rate);
+            vtctx->last_bit_rate = avctx->bit_rate;
+            SInt32 bit_rate = avctx->bit_rate;
+            CFNumberRef bit_rate_num = CFNumberCreate(kCFAllocatorDefault,
+                                      kCFNumberSInt32Type,
+                                      &bit_rate);
+            if (!bit_rate_num) return;
+
+            if (vtctx->constant_bit_rate) {
+                int status = VTSessionSetProperty(vtctx->session,
+                                            compat_keys.kVTCompressionPropertyKey_ConstantBitRate,
+                                            bit_rate_num);
+                if (status == kVTPropertyNotSupportedErr) {
+                    av_log(avctx, AV_LOG_ERROR, "Error: -constant_bit_rate true is not supported by the encoder.\n");
+                }
+            } else {
+                int status = VTSessionSetProperty(vtctx->session,
+                                            kVTCompressionPropertyKey_AverageBitRate,
+                                            bit_rate_num);
+                if (!status) {
+                    av_log(avctx, AV_LOG_ERROR, "Error: cannot set average bit rate: %d\n", status);
+                }
+            }
+
+            CFRelease(bit_rate_num);
+        }
+    }
+}
+
+
 static av_cold int vtenc_frame(
     AVCodecContext *avctx,
     AVPacket       *pkt,
@@ -2650,6 +2689,7 @@ static av_cold int vtenc_frame(
     CMSampleBufferRef buf = NULL;
     ExtraSEI sei = {0};
 
+    update_config(avctx);
     if (frame) {
         status = vtenc_send_frame(avctx, vtctx, frame);
 
