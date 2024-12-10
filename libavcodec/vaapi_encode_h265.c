@@ -899,6 +899,7 @@ static int vaapi_encode_h265_init_slice_params(AVCodecContext *avctx,
 static av_cold int vaapi_encode_h265_get_encoder_caps(AVCodecContext *avctx)
 {
     FFHWBaseEncodeContext *base_ctx = avctx->priv_data;
+    VAAPIDynLoadFunctions *vaf = ctx->hwctx->funcs;
     VAAPIEncodeH265Context    *priv = avctx->priv_data;
 
 #if VA_CHECK_VERSION(1, 13, 0)
@@ -909,7 +910,7 @@ static av_cold int vaapi_encode_h265_get_encoder_caps(AVCodecContext *avctx)
         VAStatus vas;
 
         attr.type = VAConfigAttribEncHEVCFeatures;
-        vas = vaGetConfigAttributes(ctx->hwctx->display, ctx->va_profile,
+        vas = vaf->vaGetConfigAttributes(ctx->hwctx->display, ctx->va_profile,
                                     ctx->va_entrypoint, &attr, 1);
         if (vas != VA_STATUS_SUCCESS) {
             av_log(avctx, AV_LOG_ERROR, "Failed to query encoder "
@@ -923,7 +924,7 @@ static av_cold int vaapi_encode_h265_get_encoder_caps(AVCodecContext *avctx)
         }
 
         attr.type = VAConfigAttribEncHEVCBlockSizes;
-        vas = vaGetConfigAttributes(ctx->hwctx->display, ctx->va_profile,
+        vas = vaf->vaGetConfigAttributes(ctx->hwctx->display, ctx->va_profile,
                                     ctx->va_entrypoint, &attr, 1);
         if (vas != VA_STATUS_SUCCESS) {
             av_log(avctx, AV_LOG_ERROR, "Failed to query encoder "
