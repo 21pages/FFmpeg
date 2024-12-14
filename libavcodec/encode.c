@@ -349,8 +349,9 @@ static int encode_simple_internal(AVCodecContext *avctx, AVPacket *avpkt)
 static int encode_simple_receive_packet(AVCodecContext *avctx, AVPacket *avpkt)
 {
     int ret;
-
+    av_log(avctx, AV_LOG_ERROR, "encode_simple_receive_packet\n");
     while (!avpkt->data && !avpkt->side_data) {
+        av_log(avctx, AV_LOG_ERROR, "encode_simple_internal\n");
         ret = encode_simple_internal(avctx, avpkt);
         if (ret < 0)
             return ret;
@@ -448,6 +449,7 @@ static int encode_send_frame_internal(AVCodecContext *avctx, const AVFrame *src)
     EncodeContext     *ec = encode_ctx(avci);
     AVFrame *dst = avci->buffer_frame;
     int ret;
+    av_log(avctx, AV_LOG_ERROR, "encode_send_frame_internal\n");
 
     if (avctx->codec->type == AVMEDIA_TYPE_AUDIO) {
         /* extract audio service type metadata */
@@ -510,6 +512,7 @@ int attribute_align_arg avcodec_send_frame(AVCodecContext *avctx, const AVFrame 
     AVCodecInternal *avci = avctx->internal;
     int ret;
 
+    av_log(avctx, AV_LOG_ERROR, "avcodec_send_frame\n");
     if (!avcodec_is_open(avctx) || !av_codec_is_encoder(avctx->codec))
         return AVERROR(EINVAL);
 
@@ -520,14 +523,17 @@ int attribute_align_arg avcodec_send_frame(AVCodecContext *avctx, const AVFrame 
         return AVERROR(EAGAIN);
 
     if (!frame) {
+        av_log(avctx, AV_LOG_ERROR, "frame is null\n");
         avci->draining = 1;
     } else {
+        av_log(avctx, AV_LOG_ERROR, "frame is not null\n");
         ret = encode_send_frame_internal(avctx, frame);
         if (ret < 0)
             return ret;
     }
 
     if (!avci->buffer_pkt->data && !avci->buffer_pkt->side_data) {
+        av_log(avctx, AV_LOG_ERROR, "buffer_pkt is null\n");
         ret = encode_receive_packet_internal(avctx, avci->buffer_pkt);
         if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF)
             return ret;
