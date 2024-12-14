@@ -886,7 +886,7 @@ int ff_amf_receive_packet(AVCodecContext *avctx, AVPacket *avpkt)
                 av_usleep(1000);
             }
         }
-    } while (block_and_wait);
+    } while (false); // already set query timeout
 
     if (res_query == AMF_EOF) {
         ret = AVERROR_EOF;
