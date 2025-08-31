@@ -541,7 +541,7 @@ static av_cold int amf_encode_init_h264(AVCodecContext *avctx)
     }
 
     // Wait inside QueryOutput() if supported by the driver
-    AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_QUERY_TIMEOUT, 1);
+    AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_QUERY_TIMEOUT, 1000);
     res = ctx->encoder->pVtbl->GetProperty(ctx->encoder, AMF_VIDEO_ENCODER_QUERY_TIMEOUT, &var);
     ctx->query_timeout_supported = res == AMF_OK && var.int64Value;
 
