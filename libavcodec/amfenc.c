@@ -186,6 +186,7 @@ static int amf_init_encoder(AVCodecContext *avctx)
 
     ctx->submitted_frame = 0;
     ctx->encoded_frame = 0;
+    ctx->av_bitrate = avctx->bit_rate;
     ctx->eof = 0;
 
     return 0;
@@ -670,6 +671,23 @@ static AMF_RESULT amf_query_output(AVCodecContext *avctx, AMFBuffer **buffer)
     return ret;
 }
 
+static int reconfig_encoder(AVCodecContext *avctx)
+{
+    AMFEncoderContext *ctx = avctx->priv_data;
+    AMF_RESULT  res = AMF_OK;
+
+    if (ctx->av_bitrate != avctx->bit_rate) {
+        av_log(ctx, AV_LOG_INFO, "change bitrate from %d to %d\n", ctx->av_bitrate, avctx->bit_rate);
+        ctx->av_bitrate = avctx->bit_rate;
+        if (avctx->codec->id == AV_CODEC_ID_H264) {
+            AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_TARGET_BITRATE, avctx->bit_rate);
+        } else if (avctx->codec->id == AV_CODEC_ID_HEVC) {
+            AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_HEVC_TARGET_BITRATE, avctx->bit_rate);
+        }
+    }
+    return 0;
+}
+
 int ff_amf_receive_packet(AVCodecContext *avctx, AVPacket *avpkt)
 {
     AMFEncoderContext     *ctx = avctx->priv_data;
@@ -687,6 +705,7 @@ int ff_amf_receive_packet(AVCodecContext *avctx, AVPacket *avpkt)
         av_frame_free(&frame);
         return AVERROR(EINVAL);
     }
+    reconfig_encoder(avctx);
     // check if some outputs are available
     av_fifo_read(ctx->output_list, &buffer, 1);
     if (buffer != NULL) { // return already retrieved output
