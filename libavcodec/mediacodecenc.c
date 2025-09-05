@@ -242,18 +242,19 @@ static av_cold int mediacodec_init(AVCodecContext *avctx)
     ff_AMediaFormat_setString(format, "mime", codec_mime);
     // Workaround the alignment requirement of mediacodec. We can't do it
     // silently for AV_PIX_FMT_MEDIACODEC.
+    const int align = 64;
     if (avctx->pix_fmt != AV_PIX_FMT_MEDIACODEC &&
         (avctx->codec_id == AV_CODEC_ID_H264 ||
          avctx->codec_id == AV_CODEC_ID_HEVC)) {
-        s->width = FFALIGN(avctx->width, 16);
-        s->height = FFALIGN(avctx->height, 16);
+        s->width = FFALIGN(avctx->width, align);
+        s->height = FFALIGN(avctx->height, align);
     } else {
         s->width = avctx->width;
         s->height = avctx->height;
-        if (s->width % 16 || s->height % 16)
+        if (s->width % align || s->height % align)
             av_log(avctx, AV_LOG_WARNING,
-                    "Video size %dx%d isn't align to 16, it may have device compatibility issue\n",
-                    s->width, s->height);
+                    "Video size %dx%d isn't align to %d, it may have device compatibility issue\n",
+                    s->width, s->height, align);
     }
     ff_AMediaFormat_setInt32(format, "width", s->width);
     ff_AMediaFormat_setInt32(format, "height", s->height);
