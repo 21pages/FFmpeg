@@ -115,7 +115,16 @@ typedef struct AmfContext {
     int                 max_b_frames;
     int                 qvbr_quality_level;
     int                 hw_high_motion_quality_boost;
-    int64_t             av_bitrate;
+    int64_t             last_bit_rate;
+
+    // Dynamic reconfiguration tracking
+    int                 last_qp_i;
+    int                 last_qp_p;
+    int                 last_qp_b;
+    int                 last_min_qp_i;
+    int                 last_max_qp_i;
+    int                 last_min_qp_p;
+    int                 last_max_qp_p;
 
     // HEVC - specific options
 
