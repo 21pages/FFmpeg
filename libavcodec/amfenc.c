@@ -283,6 +283,9 @@ static int amf_init_context(AVCodecContext *avctx)
     ctx->last_max_qp_i = ctx->max_qp_i;
     ctx->last_min_qp_p = ctx->min_qp_p;
     ctx->last_max_qp_p = ctx->max_qp_p;
+    ctx->last_rc_buffer_size = avctx->rc_buffer_size;
+    ctx->last_rc_initial_buffer_occupancy = avctx->rc_initial_buffer_occupancy;
+    ctx->last_rc_max_rate = avctx->rc_max_rate;
 
     // configure AMF logger
     // the return of these functions indicates old state and do not affect behaviour
@@ -667,6 +670,48 @@ static int reconfig_encoder(AVCodecContext *avctx)
             }
         }
         ctx->last_bit_rate = avctx->bit_rate;
+    }
+
+    // Dynamic VBV buffer size reconfiguration
+    if (avctx->rc_buffer_size && avctx->rc_buffer_size != ctx->last_rc_buffer_size) {
+        if (!is_cqp) {
+            av_log(ctx, AV_LOG_INFO, "change rc_buffer_size from %d to %d\n", ctx->last_rc_buffer_size, avctx->rc_buffer_size);
+            if (avctx->codec->id == AV_CODEC_ID_H264) {
+                AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_VBV_BUFFER_SIZE, avctx->rc_buffer_size);
+            } else if (avctx->codec->id == AV_CODEC_ID_HEVC) {
+                AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_HEVC_VBV_BUFFER_SIZE, avctx->rc_buffer_size);
+            }
+        }
+        ctx->last_rc_buffer_size = avctx->rc_buffer_size;
+    }
+
+    // Dynamic initial VBV buffer fullness reconfiguration
+    if (avctx->rc_initial_buffer_occupancy && avctx->rc_initial_buffer_occupancy != ctx->last_rc_initial_buffer_occupancy) {
+        if (!is_cqp && avctx->rc_buffer_size > 0) {
+            int amf_buffer_fullness = avctx->rc_initial_buffer_occupancy * 64 / avctx->rc_buffer_size;
+            if (amf_buffer_fullness > 64)
+                amf_buffer_fullness = 64;
+            av_log(ctx, AV_LOG_INFO, "change rc_initial_buffer_occupancy from %d to %d\n", ctx->last_rc_initial_buffer_occupancy, avctx->rc_initial_buffer_occupancy);
+            if (avctx->codec->id == AV_CODEC_ID_H264) {
+                AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_INITIAL_VBV_BUFFER_FULLNESS, amf_buffer_fullness);
+            } else if (avctx->codec->id == AV_CODEC_ID_HEVC) {
+                AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_HEVC_INITIAL_VBV_BUFFER_FULLNESS, amf_buffer_fullness);
+            }
+        }
+        ctx->last_rc_initial_buffer_occupancy = avctx->rc_initial_buffer_occupancy;
+    }
+
+    // Dynamic peak bitrate reconfiguration
+    if (avctx->rc_max_rate && avctx->rc_max_rate != ctx->last_rc_max_rate) {
+        if (!is_cqp) {
+            av_log(ctx, AV_LOG_INFO, "change rc_max_rate from %"PRId64" to %"PRId64"\n", ctx->last_rc_max_rate, avctx->rc_max_rate);
+            if (avctx->codec->id == AV_CODEC_ID_H264) {
+                AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_PEAK_BITRATE, avctx->rc_max_rate);
+            } else if (avctx->codec->id == AV_CODEC_ID_HEVC) {
+                AMF_ASSIGN_PROPERTY_INT64(res, ctx->encoder, AMF_VIDEO_ENCODER_HEVC_PEAK_BITRATE, avctx->rc_max_rate);
+            }
+        }
+        ctx->last_rc_max_rate = avctx->rc_max_rate;
     }
 
     // Dynamic QP/qmin/qmax reconfiguration

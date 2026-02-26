@@ -125,6 +125,9 @@ typedef struct AmfContext {
     int                 last_max_qp_i;
     int                 last_min_qp_p;
     int                 last_max_qp_p;
+    int                 last_rc_buffer_size;
+    int                 last_rc_initial_buffer_occupancy;
+    int64_t             last_rc_max_rate;
 
     // HEVC - specific options
 
